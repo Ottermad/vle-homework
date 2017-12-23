@@ -1,8 +1,9 @@
-from flask import Blueprint, g, jsonify
+from flask import Blueprint, g, jsonify, request
 from . models import Submission, Homework
 from internal.decorators import permissions_required
-from internal.exceptions import UnauthorizedError
-from internal.helper import get_record_by_id
+from internal.exceptions import UnauthorizedError, CustomError
+from internal.helper import get_record_by_id, get_boolean_query_param
+from app import services
 
 homework_blueprint = Blueprint('homework', __name__, url_prefix='/homework')
 
@@ -29,3 +30,21 @@ def list_submissions(homework_id):
 def homework_due_for_lesson(lesson_id):
     homework = Homework.query.filter(Homework.lesson_id == lesson_id)
     return jsonify({'success': True, 'homework': [h.to_dict(date_as_string=True) for h in homework]})
+
+
+@homework_blueprint.route('/summary')
+@permissions_required({"Student"})
+def homework_due_summary():
+    params = {'student_ids': g.user.id}
+    resp = services.lesson.get('lessons/lesson', params=params)
+    if resp.status_code != 200:
+        raise CustomError(
+            **resp.json()
+        )
+
+    lesson_ids = [l['id'] for l in resp.json()['lessons']]
+    homework = Homework.query.filter(Homework.lesson_id.in_(lesson_ids))
+    nest_lessons = get_boolean_query_param(request, 'nest-lessons')
+    homework_list = [h.to_dict(date_as_string=True, nest_lesson=nest_lessons, has_submitted=True, user_id=g.user.id) for h in homework]
+
+    return jsonify({'success': True, 'homework': homework_list})
