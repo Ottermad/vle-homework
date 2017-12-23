@@ -63,6 +63,16 @@ def db_init():
 
 
 @manager.command
+def create_hw_types():
+    from app.homework.models import Type, HomeworkType
+    for hw_type in HomeworkType:
+        t = Type(hw_type.name)
+        t.id = hw_type.value
+        db.session.add(t)
+    db.session.commit()
+
+
+@manager.command
 def run():
     """Run the app."""
     create_database()
