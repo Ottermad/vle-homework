@@ -40,4 +40,7 @@ def create_app(config_name="default"):
     from .essay.views import essay_blueprint
     app.register_blueprint(essay_blueprint)
 
+    from .quiz.views import quiz_blueprint
+    app.register_blueprint(quiz_blueprint)
+
     return app
