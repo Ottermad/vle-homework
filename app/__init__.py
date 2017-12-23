@@ -37,4 +37,7 @@ def create_app(config_name="default"):
     from .homework.views import homework_blueprint
     app.register_blueprint(homework_blueprint)
 
+    from .essay.views import essay_blueprint
+    app.register_blueprint(essay_blueprint)
+
     return app
