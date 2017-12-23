@@ -27,8 +27,6 @@ class Homework(db.Model):
     type_id = db.Column(db.Integer, db.ForeignKey('type.id'))
     date_due = db.Column(db.Date)
 
-    lesson = db.relationship('Lesson', backref=db.backref('homework', lazy='dynamic'))
-
     __mapper_args__ = {
         'polymorphic_identity': HomeworkType.HOMEWORK.value,
         'polymorphic_on': type_id
