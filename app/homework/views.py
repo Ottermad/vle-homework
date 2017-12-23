@@ -23,3 +23,9 @@ def list_submissions(homework_id):
         raise UnauthorizedError()
     submissions = Submission.query.filter_by(homework_id=homework.id).all()
     return jsonify({'success': True, 'submissions': [s.to_dict(nest_user=True) for s in submissions]})
+
+
+@homework_blueprint.route('/due/<int:lesson_id>')
+def homework_due_for_lesson(lesson_id):
+    homework = Homework.query.filter(Homework.lesson_id == lesson_id)
+    return jsonify({'success': True, 'homework': [h.to_dict(date_as_string=True) for h in homework]})
