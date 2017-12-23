@@ -31,14 +31,10 @@ def create_app(config_name="default"):
     def get_user_details_from_header():
         g.user = ProxiedUser(request.headers)
 
-
-    @app.route("/")
-    def index():
-        return 'Hello'
-
-
     db.init_app(app)
     services.init_app(app)
 
-    return app
+    from .homework.views import homework_blueprint
+    app.register_blueprint(homework_blueprint)
 
+    return app
