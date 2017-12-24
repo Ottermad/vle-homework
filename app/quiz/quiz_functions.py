@@ -6,7 +6,7 @@ from internal.helper import json_from_request, check_keys,get_record_by_id
 from internal.exceptions import UnauthorizedError,  CustomError
 
 from app import services, db
-from .models import Quiz, Question
+from .models import Quiz, Question, QuizAnswer, QuizSubmission
 
 
 def create_quiz(request):
@@ -67,3 +67,71 @@ def create_quiz(request):
     db.session.add(quiz)
     db.session.commit()
     return jsonify(quiz.to_dict()), 201
+
+
+def submit_quiz(request, quiz_id):
+    # Check quiz is valid
+    quiz = get_record_by_id(quiz_id, Quiz, check_school_id=False)
+    if quiz.lesson.school_id != g.user.school_id:
+        raise UnauthorizedError()
+
+    json_data = json_from_request(request)
+    expected_top_keys = ['answers']
+    expected_inner_keys = ['question_id', 'answer']
+
+    check_keys(expected_top_keys, json_data)
+
+    #  Validate lesson
+    resp = services.lesson.get(
+        "lessons/lesson/{}".format(json_data['lesson_id']), 
+        headers=g.user.headers_dict(),
+        params={'nest-students': True}
+    )
+    if resp.status_code != 200:
+        raise CustomError(**resp.json())
+
+    lesson = resp.json()['lesson']
+
+    if g.user.id not in [t['id'] for t in lesson['students']]:
+        raise UnauthorizedError()
+
+    question_ids = [question.id for question in quiz.questions]
+
+    submission = QuizSubmission(
+        homework_id=quiz.id,
+        user_id=g.user.id,
+        datetime_submitted=datetime.datetime.now()  # TODO: Deal with timezones
+    )
+
+    for answer in json_data['answers']:
+        check_keys(expected_inner_keys, answer)
+        question = get_record_by_id(answer['question_id'], Question, check_school_id=False)
+        if question.id not in question_ids:
+            raise UnauthorizedError()
+
+        answer = QuizAnswer(answer['answer'], submission.id, question.id)
+        submission.answers.append(answer)
+
+    submission.mark()
+    db.session.add(submission)
+    db.session.commit()
+    return jsonify({'score': submission.total_score})
+
+
+def quiz_detail(request, quiz_id):
+    # Check quiz if valid
+    quiz = get_record_by_id(quiz_id, Quiz, check_school_id=False)
+
+    resp = services.lesson.get(
+        "lessons/lesson/{}".format(quiz.lesson_id), 
+        headers=g.user.headers_dict(),
+    )
+    if resp.status_code != 200:
+        raise CustomError(**resp.json())
+
+    lesson = resp.json()['lesson']
+
+    if lesson['school_id'] != g.user.school_id:
+        raise UnauthorizedError()
+
+    return jsonify({'success': True, 'quiz': quiz.to_dict()})
