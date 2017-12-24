@@ -1,7 +1,8 @@
 from flask import Blueprint, request, g, jsonify
 from .quiz_functions import create_quiz, submit_quiz, quiz_detail
 from internal.decorators import permissions_required
-from internal.exceptions import UnauthorizedError
+from internal.exceptions import UnauthorizedError, CustomError
+from app import services
 from internal.helper import get_record_by_id
 from .models import QuizSubmission
 
@@ -29,7 +30,18 @@ def view_quiz_submission(submission_id):
         raise UnauthorizedError()
 
     submission = get_record_by_id(submission_id, QuizSubmission, check_school_id=False)
-    # if submission.homework.lesson.school_id != g.user.school_id:
-    #     raise UnauthorizedError()
+    # Validate lesson
+    resp = services.lesson.get(
+        "lessons/lesson/{}".format(submission.homework.lesson_id), 
+        headers=g.user.headers_dict(),
+        params={'nest-students': True}
+    )
 
+    if resp.status_code != 200:
+        raise CustomError(**resp.json())
+
+    lesson = resp.json()['lesson']
+
+    if lesson['school_id'] != g.user.school_id:
+        raise UnauthorizedError()
     return jsonify({'success': True, 'submission': submission.to_dict(nest_user=True, nest_homework=True, nest_comments=True)})
