@@ -4,6 +4,8 @@ from internal.decorators import permissions_required
 from internal.exceptions import UnauthorizedError, CustomError
 from internal.helper import get_record_by_id, get_boolean_query_param
 from app import services
+from app.homework.comment_functions import comment_create_view, comment_detail_view, comment_delete_view, \
+    comment_update_view
 
 homework_blueprint = Blueprint('homework', __name__, url_prefix='/homework')
 
@@ -69,3 +71,22 @@ def homework_due_summary():
     homework_list = [h.to_dict(date_as_string=True, nest_lesson=nest_lessons, has_submitted=True, user_id=g.user.id) for h in homework]
 
     return jsonify({'success': True, 'homework': homework_list, 'lessons': resp.url, 'lesson_ids': lesson_ids})
+
+
+# Comment Routes
+@homework_blueprint.route("/comment", methods=("POST", "GET"))
+@permissions_required({"Teacher"})
+def comment_listing_or_creation():
+    if request.method == "POST":
+        return comment_create_view(request)
+
+
+@homework_blueprint.route("/comment/<int:comment_id>", methods=("PUT", "DELETE", "GET"))
+@permissions_required({"Teacher"})
+def comment_detail(comment_id):
+    if request.method == "DELETE":
+        return comment_delete_view(request, comment_id)
+    if request.method == "PUT":
+        return comment_update_view(request, comment_id)
+    if request.method == "GET":
+        return comment_detail_view(request, comment_id)

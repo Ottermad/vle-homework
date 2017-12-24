@@ -146,7 +146,14 @@ class Comment(db.Model):
         }
 
         # TODO: Hit user service
-        # if nest_user:
-        # dictionary['user'] = self.user.to_dict()
+        if nest_user:
+            resp = services.user.get(
+                "user/user/{}".format(self.user_id), 
+                headers=g.user.headers_dict(),
+                params={'nest-students': True}
+            )
+            if resp.status_code != 200:
+                raise CustomError(**resp.json())
+            dictionary['user'] = resp.json()['user']
 
         return dictionary
