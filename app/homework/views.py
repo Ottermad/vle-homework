@@ -16,11 +16,32 @@ def list_my_submissions():
     return jsonify({'success': True, 'submissions': submissions_list})
 
 
+@homework_blueprint.route("/homework")
+def list_homework():
+    lesson_ids = request.args.get("lesson_ids")
+    
+    query = Homework.query
+
+    if lesson_ids is not None:
+        lesson_ids = lesson_ids.split(",")
+        query = query.filter(Homework.lesson_id.in_(lesson_ids))
+
+    homeworks = query.all()
+    return jsonify({'success': True, 'homework': [homework.to_dict() for homework in homeworks]})
+
+
 @homework_blueprint.route('/homework/<int:homework_id>/submissions')
 @permissions_required({'Teacher'})
 def list_submissions(homework_id):
     homework = get_record_by_id(homework_id, Homework, check_school_id=False)
-    if homework.lesson.school_id != g.user.school_id:
+
+    resp = services.lesson.get('lessons/lesson/{}'.format(homework.lesson_id), headers=g.user.headers_dict())
+    if resp.status_code != 200:
+        raise CustomError(
+            **resp.json()
+        )
+
+    if resp.json()['lesson']['school_id'] != g.user.school_id:
         raise UnauthorizedError()
     submissions = Submission.query.filter_by(homework_id=homework.id).all()
     return jsonify({'success': True, 'submissions': [s.to_dict(nest_user=True) for s in submissions]})
@@ -36,7 +57,7 @@ def homework_due_for_lesson(lesson_id):
 @permissions_required({"Student"})
 def homework_due_summary():
     params = {'student_ids': g.user.id}
-    resp = services.lesson.get('lessons/lesson', params=params)
+    resp = services.lesson.get('lessons/lesson', params=params, headers=g.user.headers_dict())
     if resp.status_code != 200:
         raise CustomError(
             **resp.json()
@@ -47,4 +68,4 @@ def homework_due_summary():
     nest_lessons = get_boolean_query_param(request, 'nest-lessons')
     homework_list = [h.to_dict(date_as_string=True, nest_lesson=nest_lessons, has_submitted=True, user_id=g.user.id) for h in homework]
 
-    return jsonify({'success': True, 'homework': homework_list})
+    return jsonify({'success': True, 'homework': homework_list, 'lessons': resp.url, 'lesson_ids': lesson_ids})

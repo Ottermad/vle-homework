@@ -72,18 +72,9 @@ def create_quiz(request):
 def submit_quiz(request, quiz_id):
     # Check quiz is valid
     quiz = get_record_by_id(quiz_id, Quiz, check_school_id=False)
-    if quiz.lesson.school_id != g.user.school_id:
-        raise UnauthorizedError()
-
-    json_data = json_from_request(request)
-    expected_top_keys = ['answers']
-    expected_inner_keys = ['question_id', 'answer']
-
-    check_keys(expected_top_keys, json_data)
-
     #  Validate lesson
     resp = services.lesson.get(
-        "lessons/lesson/{}".format(json_data['lesson_id']), 
+        "lessons/lesson/{}".format(quiz.lesson_id), 
         headers=g.user.headers_dict(),
         params={'nest-students': True}
     )
@@ -91,6 +82,15 @@ def submit_quiz(request, quiz_id):
         raise CustomError(**resp.json())
 
     lesson = resp.json()['lesson']
+
+    if lesson['school_id'] != g.user.school_id:
+        raise UnauthorizedError()
+
+    json_data = json_from_request(request)
+    expected_top_keys = ['answers']
+    expected_inner_keys = ['question_id', 'answer']
+
+    check_keys(expected_top_keys, json_data)
 
     if g.user.id not in [t['id'] for t in lesson['students']]:
         raise UnauthorizedError()

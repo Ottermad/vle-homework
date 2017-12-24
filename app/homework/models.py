@@ -1,7 +1,11 @@
 import datetime
 from enum import Enum
 
-from app import db
+from app import db, services
+
+from internal.exceptions import CustomError
+
+from flask import g
 
 
 class HomeworkType(Enum):
@@ -100,9 +104,16 @@ class Submission(db.Model):
         }
 
         if nest_user:
-            pass
+            # pass
             # TODO: Hit user service
-            # submission_dict['user'] = self.user.to_dict()
+            resp = services.user.get(
+                "user/user/{}".format(self.user_id), 
+                headers=g.user.headers_dict(),
+                params={'nest-students': True}
+            )
+            if resp.status_code != 200:
+                raise CustomError(**resp.json())
+            submission_dict['user'] = resp.json()['user']
 
         if nest_homework:
             submission_dict['homework'] = self.homework.to_dict(has_submitted=True, date_as_string=True)

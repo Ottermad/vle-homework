@@ -1,6 +1,9 @@
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, jsonify
 from .quiz_functions import create_quiz, submit_quiz, quiz_detail
 from internal.decorators import permissions_required
+from internal.exceptions import UnauthorizedError
+from internal.helper import get_record_by_id
+from .models import QuizSubmission
 
 quiz_blueprint = Blueprint('quiz', __name__, url_prefix='/quiz')
 
@@ -18,3 +21,15 @@ def quiz_submit(quiz_id):
     if request.method == "POST":
         return submit_quiz(request, quiz_id)
     return quiz_detail(request, quiz_id)
+
+
+@quiz_blueprint.route('/submission/<int:submission_id>')
+def view_quiz_submission(submission_id):
+    if not (g.user.has_permissions({'Teacher'}) or g.user.has_permissions({'Student'})):
+        raise UnauthorizedError()
+
+    submission = get_record_by_id(submission_id, QuizSubmission, check_school_id=False)
+    # if submission.homework.lesson.school_id != g.user.school_id:
+    #     raise UnauthorizedError()
+
+    return jsonify({'success': True, 'submission': submission.to_dict(nest_user=True, nest_homework=True, nest_comments=True)})
